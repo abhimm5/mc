@@ -28,6 +28,13 @@ io.on('connection', (socket) => {
         socket.broadcast.emit('candidate', candidate);
     });
 
+    // Handle chat messages
+    socket.on('chatMessage', (message) => {
+        console.log("Received chat message:", message);
+        // Broadcast the message to all connected clients
+        socket.broadcast.emit('chatMessage', message);
+    });
+
     // Handle clearing message event
     socket.on('clearMessage', () => {
         console.log("Clearing message from server side");
