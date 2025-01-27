@@ -11,7 +11,7 @@
             margin: 0;
             padding: 0;
             height: 100vh;
-            background: linear-gradient(to bottom right, #6a11cb, #2575fc);
+            background: #e9e9e9;
             display: flex;
             justify-content: center;
             align-items: center;
@@ -40,14 +40,20 @@
             opacity: 0;
             display: inline-block;
             width: 0;
-            overflow: hidden;  /* Hide the text initially */
+            overflow: hidden;
             transition: width 1s ease-out, opacity 1s ease-out;
         }
 
-        .message.peer {
-            text-align: left; /* For peer messages, align to left */
+        .message.you {
+            text-align: center;
+             color:  black;
         }
 
+        .message.peer {
+            text-align: center;
+             color:  black;
+        }
+ 
         #messageInput {
             padding: 15px 30px;
             background: linear-gradient(to right, #ff7e5f, #feb47b);
@@ -64,7 +70,7 @@
     </style>
 </head>
 <body>
-    <h5>Real-Time WebRTC Chat</h5>
+    <h5 style="color:#cccccc; text-align: left;">Real-Time WebRTC Chat</h5>
     <div id="messages"></div>
     <input type="text" id="messageInput" placeholder="Type a message..." />
 
@@ -94,7 +100,8 @@
                 messagesDiv.appendChild(currentMessageDiv);
             }
 
-            currentMessageDiv.textContent = message;
+            // Add sender label ("You" or "They")
+            currentMessageDiv.textContent = (sender === 'you' ? 'You: ' : 'They: ') + message;
 
             // Apply the left-to-right fade-in effect
             setTimeout(() => {
