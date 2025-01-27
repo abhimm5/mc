@@ -32,6 +32,9 @@
         const messagesDiv = document.getElementById("messages");
         const messageInput = document.getElementById("messageInput");
 
+        // To track the current message being displayed
+        let currentMessageDiv = null;
+
         // Create a data channel for sending messages
         function createDataChannel() {
             dataChannel = peerConnection.createDataChannel("chat");
@@ -44,35 +47,37 @@
             };
         }
 
-        // Display messages in the chat window
+        // Display or update the message in the chat window
         function displayMessage(message, sender) {
-            const messageElem = document.createElement("div");
-            messageElem.textContent = (sender === 'peer' ? "Peer: " : "You: ") + message;
-            messagesDiv.appendChild(messageElem);
+            // Check if there's an existing message element
+            if (currentMessageDiv) {
+                // Update the text content of the existing message element
+                currentMessageDiv.textContent = (sender === 'peer' ? "Peer: " : "You: ") + message;
+            } else {
+                // If no message exists, create a new one
+                currentMessageDiv = document.createElement("div");
+                currentMessageDiv.textContent = (sender === 'peer' ? "Peer: " : "You: ") + message;
+                messagesDiv.appendChild(currentMessageDiv);
+            }
             messagesDiv.scrollTop = messagesDiv.scrollHeight; // Auto-scroll to bottom
         }
 
-        // Send message automatically when user starts typing
-        let typingTimer;
+        // Send message instantly when user types
         messageInput.addEventListener('input', () => {
-            clearTimeout(typingTimer);
-            typingTimer = setTimeout(() => {
-                if (messageInput.value.trim()) {
-                    const message = messageInput.value.trim();
-                    displayMessage(message, 'you');
-                    dataChannel.send(message); // Send the message via DataChannel
-                }
-            }, 100); // Send message after a short delay (e.g., 100ms)
+            const message = messageInput.value.trim();
+            if (message) {
+                displayMessage(message, 'you');  // Update the display with the new message
+                socket.emit('chatMessage', message);  // Emit message to server for broadcasting
+            }
         });
 
         // Clear message on Enter key press
         messageInput.addEventListener('keydown', (e) => {
             if (e.key === 'Enter') {
-                messageInput.value = ''; // Clear the input after pressing "Enter"
-
-                // Clear the message from both the server and the client
+                messageInput.value = '';  // Clear the input after pressing "Enter"
                 socket.emit('clearMessage'); // Emit event to signal clearing of message
                 messagesDiv.innerHTML = '';  // Clear the message display area
+                currentMessageDiv = null;  // Reset current message reference
             }
         });
 
@@ -111,6 +116,11 @@
 
         // Start the process (only need to call initiateConnection once)
         window.onload = initiateConnection;
+
+        // Listen for chat messages from the server
+        socket.on('chatMessage', (message) => {
+            displayMessage(message, 'peer');  // Display the message received from another peer
+        });
 
     </script>
 </body>
