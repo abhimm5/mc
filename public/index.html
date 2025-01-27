@@ -3,10 +3,11 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Simple WebRTC Chat</title>
+    <title>Real-Time WebRTC Chat</title>
+    <link href='https://fonts.googleapis.com/css?family=Outfit' rel='stylesheet'>
     <style>
         body {
-            font-family: Arial, sans-serif;
+            font-family: 'Outfit'; font-size: 22px;
             margin: 0;
             padding: 0;
             height: 100vh;
@@ -15,20 +16,38 @@
             justify-content: center;
             align-items: center;
             color: white;
-            flex-direction: column; /* Aligns content vertically */
+            flex-direction: column;
         }
 
-        /* Message styling */
+        #messages {
+            font-size: 30px;
+            padding: 20px;
+            text-align: center;
+            overflow-y: auto;
+            max-height: 70vh;
+            width: 90%;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+
         .message {
             margin-bottom: 12px;
             padding: 12px;
-            border-radius: 8px;
             max-width: 90%;
-            font-size: 20px; /* Increased font size for better visibility */
+            font-size: 40px;
             color: white;
+            opacity: 0;
+            display: inline-block;
+            width: 0;
+            overflow: hidden;  /* Hide the text initially */
+            transition: width 1s ease-out, opacity 1s ease-out;
         }
 
-        /* Input styled as a button */
+        .message.peer {
+            text-align: left; /* For peer messages, align to left */
+        }
+
         #messageInput {
             padding: 15px 30px;
             background: linear-gradient(to right, #ff7e5f, #feb47b);
@@ -36,113 +55,98 @@
             font-size: 18px;
             border: none;
             border-radius: 30px;
-            cursor: pointer;
             outline: none;
-            transition: background 0.3s ease-in-out;
-            margin-top: 20px;
-            position: fixed; /* Fixed position at the bottom */
-            bottom: 40px; /* Add some space from the bottom */
+            position: fixed;
+            bottom: 40px;
             left: 50%;
-            transform: translateX(-50%); /* Center horizontally */
-        }
-
-        #messageInput:hover {
-            background: linear-gradient(to right, #feb47b, #ff7e5f);
-        }
-
-        #messageInput:focus {
-            box-shadow: 0 0 5px rgba(255, 255, 255, 0.8);
-        }
-
-        /* Hide input initially, then show on click */
-        #messageInput.hidden {
-            opacity: 0%;
+            transform: translateX(-50%);
         }
     </style>
 </head>
 <body>
-    <h1>Real-Time WebRTC Chat</h1>
+    <h5>Real-Time WebRTC Chat</h5>
     <div id="messages"></div>
-    <input type="text" id="messageInput" placeholder="Type a message..." onclick="hideInput(event)" />
-    <script>
-        // Hide input when clicked
-        function hideInput(event) {
-            document.getElementById("messageInput").classList.add("hidden");
-            event.stopPropagation(); // Prevent the click from reaching the document
-        }
+    <input type="text" id="messageInput" placeholder="Type a message..." />
 
-        // Show input when clicking anywhere else on the page
-        document.addEventListener("click", function(event) {
-            if (event.target.id !== "messageInput") {
-                document.getElementById("messageInput").classList.remove("hidden");
-            }
-        });
-
-
-
-
-    </script>
     <script src="/socket.io/socket.io.js"></script>
     <script>
-
-        const socket = io();  // Connect to the signaling server
-
-        // Set up WebRTC Peer Connection
+        const socket = io(); // Connect to the signaling server
         const peerConnection = new RTCPeerConnection();
         let dataChannel;
         const messagesDiv = document.getElementById("messages");
         const messageInput = document.getElementById("messageInput");
 
-        // To track the current message being displayed
-        let currentMessageDiv = null;
+        let currentMessageDiv = null;  // Track the current message div
 
-        // Create a data channel for sending messages
-        function createDataChannel() {
-            dataChannel = peerConnection.createDataChannel("chat");
-            dataChannel.onopen = () => {
-                console.log("Data channel open, ready to send messages.");
-            };
-            dataChannel.onmessage = (event) => {
-                // Display received messages
-                displayMessage(event.data, 'peer');
-            };
-        }
-
-        // Display or update the message in the chat window
+        // Display or update a message with the left-to-right fade-in effect
         function displayMessage(message, sender) {
-            // Check if there's an existing message element
             if (currentMessageDiv) {
-                // Update the text content of the existing message element
-                currentMessageDiv.textContent = (sender === 'peer' ? "Peer: " : "You: ") + message;
-            } else {
-                // If no message exists, create a new one
+                // Fade-out the previous message if it exists
+                currentMessageDiv.style.transition = "opacity 1s ease-out";
+                currentMessageDiv.style.opacity = 0;
+            }
+
+            // Create a new message div only if there's no existing message
+            if (!currentMessageDiv) {
                 currentMessageDiv = document.createElement("div");
-                currentMessageDiv.textContent = (sender === 'peer' ? "Peer: " : "You: ") + message;
+                currentMessageDiv.classList.add("message");
+                currentMessageDiv.classList.add(sender); // Apply different classes for sender/peer
                 messagesDiv.appendChild(currentMessageDiv);
             }
-            messagesDiv.scrollTop = messagesDiv.scrollHeight; // Auto-scroll to bottom
+
+            currentMessageDiv.textContent = message;
+
+            // Apply the left-to-right fade-in effect
+            setTimeout(() => {
+                currentMessageDiv.style.width = "100%";  // Expand the text box
+                currentMessageDiv.style.opacity = 1;     // Fade in the text
+            }, sender === 'peer' ? 500 : 10);  // Add delay for peer messages
+
+            // Auto-scroll to the bottom if the message is the last one
+            const shouldScroll = messagesDiv.scrollHeight === messagesDiv.scrollTop + messagesDiv.clientHeight;
+            if (shouldScroll) {
+                messagesDiv.scrollTop = messagesDiv.scrollHeight; // Scroll to bottom
+            }
         }
 
-        // Send message instantly when user types
+        // Create the data channel for WebRTC messaging
+        function createDataChannel() {
+            dataChannel = peerConnection.createDataChannel("chat");
+            dataChannel.onopen = () => console.log("Data channel open.");
+            dataChannel.onmessage = (event) => displayMessage(event.data, 'peer');
+        }
+
+        // Emit message when user types
         messageInput.addEventListener('input', () => {
             const message = messageInput.value.trim();
             if (message) {
-                displayMessage(message, 'you');  // Update the display with the new message
-                socket.emit('chatMessage', message);  // Emit message to server for broadcasting
+                displayMessage(message, 'you'); // Show message locally
+                socket.emit('chatMessage', message); // Emit to server
             }
         });
 
-        // Clear message on Enter key press
+        // Clear messages when "Enter" is pressed
         messageInput.addEventListener('keydown', (e) => {
             if (e.key === 'Enter') {
-                messageInput.value = '';  // Clear the input after pressing "Enter"
-                socket.emit('clearMessage'); // Emit event to signal clearing of message
-                messagesDiv.innerHTML = '';  // Clear the message display area
-                currentMessageDiv = null;  // Reset current message reference
+                messageInput.value = ''; // Clear input field
+                socket.emit('clearMessage'); // Notify server to clear messages
+                clearMessagesWithEffect(); // Apply fade-out effect
             }
         });
 
-        // Handle peer connection setup through signaling
+        // Handle clearing of messages with fade-out effect
+        function clearMessagesWithEffect() {
+            if (currentMessageDiv) {
+                currentMessageDiv.style.transition = "opacity 1s ease-out";
+                currentMessageDiv.style.opacity = "0"; // Fade-out effect
+                setTimeout(() => {
+                    // Wait for fade-out to complete before clearing
+                    currentMessageDiv.textContent = ''; // Clear message
+                }, 1000); // Wait for the fade-out to complete
+            }
+        }
+
+        // WebRTC signaling logic
         socket.on("offer", (offer) => {
             peerConnection.setRemoteDescription(new RTCSessionDescription(offer));
             createDataChannel();
@@ -160,14 +164,13 @@
             peerConnection.addIceCandidate(new RTCIceCandidate(candidate));
         });
 
-        // Send ICE candidates to the other peer
         peerConnection.onicecandidate = (event) => {
             if (event.candidate) {
                 socket.emit("candidate", event.candidate);
             }
         };
 
-        // Initiate the connection when ready (create offer)
+        // Start WebRTC connection
         function initiateConnection() {
             peerConnection.createOffer().then((offer) => {
                 peerConnection.setLocalDescription(offer);
@@ -175,15 +178,10 @@
             });
         }
 
-        // Start the process (only need to call initiateConnection once)
         window.onload = initiateConnection;
 
-        // Listen for chat messages from the server
-        socket.on('chatMessage', (message) => {
-            displayMessage(message, 'peer');  // Display the message received from another peer
-        });
-  
-
+        // Listen for chat messages from the other peer
+        socket.on('chatMessage', (message) => displayMessage(message, 'peer'));
     </script>
 </body>
 </html>
