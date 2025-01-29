@@ -46,238 +46,149 @@
 
         .message.you {
             text-align: center;
-            color: black;
+             color:  black;
         }
 
         .message.peer {
             text-align: center;
-            color: black;
+             color:  black;
         }
-
-        /* Fade-in effect for the last word */
-        .fade-in-text {
-            animation: fadeInEffect 3s forwards;
+ 
+        #messageInput {
+            padding: 15px 30px;
+            background: linear-gradient(to right, #ff7e5f, #feb47b);
+            color: white;
+            font-size: 18px;
+            border: none;
+            border-radius: 30px;
+            outline: none;
+            position: fixed;
+            bottom: 40px;
+            left: 50%;
+            transform: translateX(-50%);
         }
-
-        @keyframes fadeInEffect {
-            0% {
-                opacity: 0;
-            }
-            100% {
-                opacity: 1;
-            }
-        }
-
-      #messageInput {
-    font-family: 'Outfit', sans-serif;
-    font-size: 40px;
-    padding: 20px;
-    width: 100%;
-    max-width: 600px;
-    min-height: 50px;
-    border: 1px solid #ccc;
-    border-radius: 5px;
-    outline: none;
-    box-sizing: border-box; /* Ensure padding is included in width/height calculation */
-    word-wrap: break-word; /* Ensure long words wrap */
-    word-break: break-word; /* Prevent word overflow */
-    white-space: normal; /* Allow text wrapping */
-    overflow-wrap: break-word; /* Break long words when necessary */
-    overflow-x: hidden; /* Prevent horizontal overflow */
-    line-height: 1.5;
-    text-align: left; /* Left-align text */
-    display: block; /* Block-level behavior */
-    justify-content: center;
-            align-items: center;
-            text-align: center;
-            color: #F0513E;
-}
-
-/* Ensure divs inside contenteditable appear inline */
-#messageInput div {
-    display: inline-block; /* Make divs inline-block to sit next to each other */
-    margin: 0; /* Remove any default margin */
-    padding: 0; /* Remove default padding */
-    white-space: nowrap; /* Prevent breaking between divs */
-}
-
-/* When the contenteditable div is empty, show placeholder */
-#messageInput:empty:before {
-    content: attr(placeholder);
-    color: #888;
-    font-size: 40px;
-    font-family: 'Outfit', sans-serif;
-}
-
-        /* Word container */
-        .word {
-            display: inline-block;
-        }
-
-    .gray-text {
-      color: #F0513E;
-    }
-
-    .black-text {
-      color: black;
-    }
     </style>
 </head>
 <body>
-    <h5 id="user" style="color:#333; text-align: center;">Real-Time WebRTC Chat</h5>
-    <div id="messageInput" contenteditable="true" placeholder="Type a message..."></div>
-    <h6 style="color:#888; text-align: center;">Use full stop to send all texts.<br>Press enter to clear chats after every msgs.</h6>
-    <br>
-
-
-
+    <h5 style="color:#cccccc; text-align: left;">Real-Time WebRTC Chat</h5>
+    <div id="messages"></div>
+    <input type="text" id="messageInput" placeholder="Type a message..." />
 
     <script src="/socket.io/socket.io.js"></script>
-<script>
-    const socket = io(); // Connect to the signaling server
-    const peerConnection = new RTCPeerConnection();
-    let dataChannel;
-    const messageInput = document.getElementById("messageInput");
-    const wordDivElement = document.createElement('div');
-    const user = document.getElementById("user");
+    <script>
+        const socket = io(); // Connect to the signaling server
+        const peerConnection = new RTCPeerConnection();
+        let dataChannel;
+        const messagesDiv = document.getElementById("messages");
+        const messageInput = document.getElementById("messageInput");
 
-    let previousMessage = ''; // Keep track of the previous message
+        let currentMessageDiv = null;  // Track the current message div
 
-    // Function to send an emoji as a message
-    function sendEmoji(emoji) {
-        displayMessage(emoji, 'you'); // Show message locally
-        socket.emit('chatMessage', emoji); // Emit to the server
-    }
+        // Display or update a message with the left-to-right fade-in effect
+        function displayMessage(message, sender) {
+            if (currentMessageDiv) {
+                // Fade-out the previous message if it exists
+                currentMessageDiv.style.transition = "opacity 1s ease-out";
+                currentMessageDiv.style.opacity = 0;
+            }
 
-    // Attach event listeners to all emoji elements
-    document.querySelectorAll('div span[style*="font-size:50px"]').forEach(emoji => {
-        emoji.addEventListener('click', () => {
-            sendEmoji(emoji.textContent);
-        });
-    });
+            // Create a new message div only if there's no existing message
+            if (!currentMessageDiv) {
+                currentMessageDiv = document.createElement("div");
+                currentMessageDiv.classList.add("message");
+                currentMessageDiv.classList.add(sender); // Apply different classes for sender/peer
+                messagesDiv.appendChild(currentMessageDiv);
+            }
 
-    // Display or update a message in the input field
-    function displayMessage(message, sender) {
-        if (sender === 'peer') {
-            // Clear the content before adding the new message
-            messageInput.innerHTML = '';
+            // Add sender label ("You" or "They")
+            currentMessageDiv.textContent = (sender === 'you' ? 'You: ' : 'They: ') + message;
 
-            // Split the message into words, maintaining spaces
-            const words = message.split(' ');
+            // Apply the left-to-right fade-in effect
+            setTimeout(() => {
+                currentMessageDiv.style.width = "100%";  // Expand the text box
+                currentMessageDiv.style.opacity = 1;     // Fade in the text
+            }, sender === 'peer' ? 500 : 10);  // Add delay for peer messages
 
-            // Loop through words to create the message with space and fade-in effect for the last word
-            words.forEach((word, index) => {
-                const wordElement = document.createElement('div');
-                wordElement.textContent = word;
-                wordElement.style.color = "#222";
-
-                // Apply fade-in effect to the last word only
-                if (index === words.length - 1) {
-                    wordElement.classList.add('fade-in-text');
-                }
-
-                // Append each word to the input container
-                messageInput.appendChild(wordElement);
-
-                // Add space (HTML entity) as a separate <span> after each word except the last one
-                if (index < words.length - 1) {
-                    const spaceElement = document.createElement('div');
-                    spaceElement.innerHTML = '&nbsp;'; // Add non-breaking space using innerHTML
-                    messageInput.appendChild(spaceElement);
-                    spaceElement.style.color = "#222";
-                }
-            });
-            user.innerHTML = "They:"
-        }
-
-        if (sender === 'you') {
-
-            user.innerHTML = "You:"
-        }
-
-
-    }
-
-    // Create the data channel for WebRTC messaging
-    function createDataChannel() {
-        dataChannel = peerConnection.createDataChannel("chat");
-        dataChannel.onopen = () => console.log("Data channel open.");
-        dataChannel.onmessage = (event) => displayMessage(event.data, 'peer');
-    }
-
-    // Emit message when user types
-    messageInput.addEventListener('keydown', (e) => {
-        let message = messageInput.textContent.trim();
-        if (message && (e.key === '?' || e.key === '!' || e.key === '.' || e.key === ' ')) {
-            if (message !== previousMessage) {
-                if (e.key === '.') {
-                    message = message.trim() + ".";
-                    displayMessage(message, 'you');
-                    socket.emit('chatMessage', message);
-                } else if (e.key === '?') {
-                    message = message.trim() + "?";
-                    displayMessage(message, 'you');
-                    socket.emit('chatMessage', message);
-                } else if (e.key === '!') {
-                    message = message.trim() + "!";
-                    displayMessage(message, 'you');
-                    socket.emit('chatMessage', message);
-                } else if (e.key === ' ') {
-                    displayMessage(message, 'you');
-                    socket.emit('chatMessage', message);
-                }
-                previousMessage = message;
+            // Auto-scroll to the bottom if the message is the last one
+            const shouldScroll = messagesDiv.scrollHeight === messagesDiv.scrollTop + messagesDiv.clientHeight;
+            if (shouldScroll) {
+                messagesDiv.scrollTop = messagesDiv.scrollHeight; // Scroll to bottom
             }
         }
-    });
 
-    // Clear messages when "Enter" is pressed
-    messageInput.addEventListener('keydown', (e) => {
-        if (e.key === 'Enter') {
-            messageInput.textContent = '';
-            previousMessage = '';
-            socket.emit('clearMessage');
+        // Create the data channel for WebRTC messaging
+        function createDataChannel() {
+            dataChannel = peerConnection.createDataChannel("chat");
+            dataChannel.onopen = () => console.log("Data channel open.");
+            dataChannel.onmessage = (event) => displayMessage(event.data, 'peer');
         }
-    });
 
-    // WebRTC signaling logic
-    socket.on("offer", (offer) => {
-        peerConnection.setRemoteDescription(new RTCSessionDescription(offer));
-        createDataChannel();
-        peerConnection.createAnswer().then((answer) => {
-            peerConnection.setLocalDescription(answer);
-            socket.emit("answer", answer);
+        // Emit message when user types
+        messageInput.addEventListener('input', () => {
+            const message = messageInput.value.trim();
+            if (message) {
+                displayMessage(message, 'you'); // Show message locally
+                socket.emit('chatMessage', message); // Emit to server
+            }
         });
-    });
 
-    socket.on("answer", (answer) => {
-        peerConnection.setRemoteDescription(new RTCSessionDescription(answer));
-    });
+        // Clear messages when "Enter" is pressed
+        messageInput.addEventListener('keydown', (e) => {
+            if (e.key === 'Enter') {
+                messageInput.value = ''; // Clear input field
+                socket.emit('clearMessage'); // Notify server to clear messages
+                clearMessagesWithEffect(); // Apply fade-out effect
+            }
+        });
 
-    socket.on("candidate", (candidate) => {
-        peerConnection.addIceCandidate(new RTCIceCandidate(candidate));
-    });
-
-    peerConnection.onicecandidate = (event) => {
-        if (event.candidate) {
-            socket.emit("candidate", event.candidate);
+        // Handle clearing of messages with fade-out effect
+        function clearMessagesWithEffect() {
+            if (currentMessageDiv) {
+                currentMessageDiv.style.transition = "opacity 1s ease-out";
+                currentMessageDiv.style.opacity = "0"; // Fade-out effect
+                setTimeout(() => {
+                    // Wait for fade-out to complete before clearing
+                    currentMessageDiv.textContent = ''; // Clear message
+                }, 1000); // Wait for the fade-out to complete
+            }
         }
-    };
 
-    // Start WebRTC connection
-    function initiateConnection() {
-        peerConnection.createOffer().then((offer) => {
-            peerConnection.setLocalDescription(offer);
-            socket.emit("offer", offer);
+        // WebRTC signaling logic
+        socket.on("offer", (offer) => {
+            peerConnection.setRemoteDescription(new RTCSessionDescription(offer));
+            createDataChannel();
+            peerConnection.createAnswer().then((answer) => {
+                peerConnection.setLocalDescription(answer);
+                socket.emit("answer", answer);
+            });
         });
-    }
 
-    window.onload = initiateConnection;
+        socket.on("answer", (answer) => {
+            peerConnection.setRemoteDescription(new RTCSessionDescription(answer));
+        });
 
-    // Listen for chat messages from the other peer
-    socket.on('chatMessage', (message) => displayMessage(message, 'peer'));
+        socket.on("candidate", (candidate) => {
+            peerConnection.addIceCandidate(new RTCIceCandidate(candidate));
+        });
 
-</script>
+        peerConnection.onicecandidate = (event) => {
+            if (event.candidate) {
+                socket.emit("candidate", event.candidate);
+            }
+        };
 
+        // Start WebRTC connection
+        function initiateConnection() {
+            peerConnection.createOffer().then((offer) => {
+                peerConnection.setLocalDescription(offer);
+                socket.emit("offer", offer);
+            });
+        }
+
+        window.onload = initiateConnection;
+
+        // Listen for chat messages from the other peer
+        socket.on('chatMessage', (message) => displayMessage(message, 'peer'));
+    </script>
 </body>
 </html>
